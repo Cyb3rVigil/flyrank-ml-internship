@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FlyRank research paper: prioritizing future impression-decline risk for unseen clients using historical search-performance signals.">
+  <title>Prioritizing Future Impression-Decline Risk | FlyRank Research</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="container">
+      <p class="eyebrow">FLYRANK ML INTERNSHIP · RESEARCH PAPER</p>
+      <h1>Can Historical Search Signals Prioritize Future Impression-Decline Risk for Unseen Clients?</h1>
+      <p class="abstract"><strong>Abstract.</strong> This study asks whether historical search-performance signals can prioritize client-content pages that will experience a substantial future decline in daily impressions, especially for completely unseen clients. Using an anonymized FlyRank Internship Warehouse release, we built five pre-decision numerical features from a historical window and compared a transparent weighted baseline with Logistic Regression and a constrained Random Forest under a client-grouped holdout. On 2,348 eligible client-content rows, the unseen-client test contained 228 rows from four clients with zero training-test client overlap and a 5.7% positive base rate. All three approaches achieved Precision@20 of 0.000 on the honest unseen-client holdout, so the study does not demonstrate useful operational lift for automatic deployment. The resulting recommendation is a transparent, human-reviewed prioritization process while stronger validation data and additional leakage-safe features are collected.</p>
+      <div class="meta"><span>Decision moment: 2026-03-21</span><span>Primary metric: Precision@20</span><span>Automation allowed: No</span></div>
+    </div>
+  </header>
+
+  <main class="container paper">
+    <section>
+      <h2>1. Introduction and Problem Statement</h2>
+      <p>Search-performance teams need a practical way to decide which pages deserve human investigation before their visibility deteriorates further. The operational decision studied here is a Top-20 human-review queue: given historical evidence available before a decision date, rank pages by their future impression-decline risk.</p>
+      <p>The unit of analysis is a client-content page. The output is a ranked score and a review queue, not an automatic publishing action. The research question is deliberately narrow: can five historical search-performance features provide useful prioritization for clients that were completely unseen during model training?</p>
+    </section>
+
+    <section>
+      <h2>2. Data</h2>
+      <p>The analysis uses the public-safe, anonymized FlyRank Internship Warehouse release and the <code>fact_content_daily_performance</code> table. The feature window is <strong>2026-03-01 to 2026-03-21</strong>; the outcome window is <strong>2026-03-22 to 2026-03-31</strong>. There are 2,348 eligible client-content rows across 14 pseudonymous clients. The dataset is described as a sealed period from June 2026.</p>
+      <p>The public paper does not expose client names, company names, domains, page URLs, raw search queries, private keywords, credentials, or directly identifying information. Pseudonymous client identifiers are used for grouping and validation, not as predictive features.</p>
+    </section>
+
+    <section>
+      <h2>3. Methodology</h2>
+      <h3>Target definition</h3>
+      <p>A page is labelled positive when its outcome-window average impressions per day falls below 80% of its historical feature-window average impressions per day. This is a proxy for future decline; it does not prove that a page needs a content refresh.</p>
+      <h3>Features</h3>
+      <p>The models use five historical, pre-decision numerical features:</p>
+      <ul><li>Historical impressions per day</li><li>Historical clicks per day</li><li>Historical click-through rate</li><li>Historical average position</li><li>Historical position standard deviation</li></ul>
+      <p>Outcome-window variables are excluded from the feature set. Label-derived trend fields and pseudonymous IDs are not used as predictive features.</p>
+      <h3>Models and validation</h3>
+      <p>The comparison includes a transparent weighted baseline, Logistic Regression as the primary learned model, and a constrained Random Forest as a challenger. The final evaluation uses a client-grouped holdout: 2,120 training rows from 10 clients and 228 test rows from four completely unseen clients, with zero client overlap.</p>
+    </section>
+
+    <section>
+      <h2>4. Results</h2>
+      <p>The honest client-grouped evaluation is the primary result because a random-row split allowed client overlap. That random-row diagnostic produced Precision@20 of 0.700, but 12 clients appeared in both training and test, making it unsuitable as evidence of unseen-client generalization. Under the grouped holdout, Precision@20 fell to 0.000 for all three approaches.</p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Precision@20</th><th>Precision@50</th><th>Average Precision</th><th>ROC-AUC</th></tr></thead>
+          <tbody>
+            <tr><td>Transparent baseline</td><td>0.000</td><td>0.040</td><td>0.0478</td><td>0.3955</td></tr>
+            <tr><td>Logistic Regression</td><td>0.000</td><td>0.040</td><td>0.0461</td><td>0.3284</td></tr>
+            <tr><td>Random Forest</td><td>0.000</td><td>0.020</td><td>0.0591</td><td>0.5120</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="callout"><strong>Main result:</strong> the available evidence does not demonstrate operational improvement over the transparent baseline for a Top-20 queue on completely unseen clients.</div>
+    </section>
+
+    <section>
+      <h2>5. Limitations and Honest Framing</h2>
+      <p><strong>Small grouped test set.</strong> The client-grouped test contains only 228 rows from four unseen clients and 13 proxy-positive pages, so Precision@20 can be unstable.</p>
+      <p><strong>Proxy outcome.</strong> The label captures a future impressions decline, not the business decision to refresh content. It is observational evidence, not a causal intervention result.</p>
+      <p><strong>Limited feature set.</strong> Only five historical search-performance features are used. The model does not represent every factor that may influence search-performance changes.</p>
+      <p><strong>No randomized intervention.</strong> The study does not establish that any recommended action causes better future performance.</p>
+      <p><strong>Generalization limits.</strong> Four held-out clients are not enough to establish generalization across all industries, content categories, client sizes, or search environments.</p>
+    </section>
+
+    <section>
+      <h2>6. Ranked Recommendations</h2>
+      <ol class="recommendations">
+        <li><strong>Block automatic deployment.</strong> Do not let the current model directly change content or publishing decisions.</li>
+        <li><strong>Use a transparent human-review queue.</strong> Prioritize explainable historical signals and show reason codes for each item.</li>
+        <li><strong>Assign explicit review dispositions.</strong> Use REVIEW, INVESTIGATE, TRIAGE, MONITOR, or DEFER so outcomes can be measured consistently.</li>
+        <li><strong>Treat freshness as a hypothesis.</strong> Do not refresh a page only because it is old; require manual verification of the underlying opportunity.</li>
+        <li><strong>Improve the feature set.</strong> Add only pre-decision, public-safe, leakage-checked features such as historical trend, volatility, content age, category, device distribution, or technical availability signals.</li>
+        <li><strong>Run stronger validation.</strong> Add more held-out clients, repeated grouped cross-validation, out-of-time validation, confidence intervals, calibration checks, and multiple label/window definitions.</li>
+        <li><strong>Measure real interventions.</strong> Compare reviewed and untreated pages over consistent 30-day and 60-day follow-up periods.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>7. Reproducibility</h2>
+      <p>The repository contains the capstone notebook and supporting analysis notebooks covering the data contract, feature/leakage checks, baseline, model comparison, validation audit, and action playbook.</p>
+      <p><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship" target="_blank" rel="noopener">GitHub repository</a> · <a href="https://colab.research.google.com/github/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/capstone.ipynb" target="_blank" rel="noopener">Open capstone in Colab</a></p>
+      <p>Supporting notebooks:</p>
+      <ul>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w03_data_contract.ipynb" target="_blank" rel="noopener">Data contract</a></li>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w03_feature_leakage_check.ipynb" target="_blank" rel="noopener">Feature and leakage check</a></li>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w04_baseline_score.ipynb" target="_blank" rel="noopener">Transparent baseline</a></li>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w05_model.ipynb" target="_blank" rel="noopener">Model comparison</a></li>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w06_validation_audit.ipynb" target="_blank" rel="noopener">Validation audit</a></li>
+        <li><a href="https://github.com/Cyb3rVigil/flyrank-ml-internship/blob/main/work/notebooks/w07_action_playbook.ipynb" target="_blank" rel="noopener">Action playbook</a></li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. Acknowledgments and Data Credit</h2>
+      <p>This research was completed as part of the FlyRank ML Internship using the provided anonymized internship warehouse and public-safe research workflow.</p>
+      <p>Data credit: <a href="https://flyrank.ai" target="_blank" rel="noopener">FlyRank</a>.</p>
+    </section>
+
+    <footer>
+      <p>Research framing: decision support, not automatic publishing. Negative results are reported as measured.</p>
+    </footer>
+  </main>
+</body>
+</html>
