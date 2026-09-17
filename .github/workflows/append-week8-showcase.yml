@@ -1,0 +1,109 @@
+name: Append Week-8 Showcase
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  append-showcase:
+    if: ${{ !contains(github.event.head_commit.message, 'Add Week-8 showcase materials') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Append showcase markdown to capstone notebook
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path('work/notebooks/capstone.ipynb')
+          nb = json.loads(path.read_text(encoding='utf-8'))
+          marker = '## Week-8 Showcase'
+
+          already_present = any(
+              cell.get('cell_type') == 'markdown'
+              and marker in ''.join(cell.get('source', []))
+              for cell in nb.get('cells', [])
+          )
+
+          if already_present:
+              print('Week-8 showcase already present; no changes needed.')
+              raise SystemExit(0)
+
+          markdown = '''## Week-8 Showcase — 5-Minute Demo
+
+### 0:00–0:45 — Question and FlyRank content problem
+
+**Question:** Can historical search-performance signals help prioritize which client-content pages a human should investigate first when future impressions decline, especially for completely unseen clients?
+
+**Context:** FlyRank's content workflow has to monitor many published pages because pages can quietly lose search visibility as rankings, clicks, and impressions change. This capstone treats that real content-operations problem as a ranking task: produce a small human-review queue instead of asking the model to publish or modify content automatically.
+
+### 0:45–1:45 — Data and method
+
+- Public-safe FlyRank Internship Warehouse release.
+- 2,348 eligible client-content rows across 14 pseudonymous clients.
+- Five historical, pre-decision features: impressions/day, clicks/day, CTR, average position, and position standard deviation.
+- Label: outcome impressions/day < 80% of historical impressions/day.
+- Models: transparent baseline, Logistic Regression, and constrained Random Forest.
+- Primary metric: Precision@20.
+- Final validation: client-grouped holdout with 2,120 training rows from 10 clients and 228 test rows from 4 completely unseen clients; client overlap = 0.
+
+### 1:45–2:45 — One chart
+
+Show **`docs/assets/model-vs-baseline.png`** from the completed notebook.
+
+Explain the one message the audience should see: all three methods have Precision@20 of 0.000 on the same unseen-client holdout, while Precision@50 is 0.040 for the transparent baseline and Logistic Regression and 0.020 for Random Forest.
+
+### 2:45–3:45 — One honest result
+
+The random-row diagnostic initially produced Precision@20 of 0.700, but 12 clients appeared in both training and test. When client overlap was removed, Precision@20 became 0.000 for all three approaches. Therefore the grouped result is the primary evidence, and the study does **not** demonstrate useful operational lift for a Top-20 queue on unseen clients.
+
+### 3:45–4:30 — One recommendation
+
+**Recommendation:** keep automatic deployment blocked and use a transparent human-review queue while collecting stronger evidence. Every future feature should be pre-decision and leakage-safe, and future validation should include more clients plus out-of-time testing.
+
+### 4:30–5:00 — Close
+
+The takeaway is not that the idea failed; it is that the current evidence is not strong enough to automate a content decision. The next useful step is to expand leakage-safe signals, strengthen grouped and temporal validation, and measure what happens after real human-reviewed interventions.
+
+## Shareable Cut 1 — Short Social Post
+
+I built a public-safe ML research workflow around a real FlyRank content problem: when search performance starts to decay across many published pages, which pages should a human investigate first?
+
+I tested five historical search-performance features against a transparent baseline, Logistic Regression, and Random Forest, using a client-grouped holdout so no client appeared in both training and test. The key lesson was methodological: a random-row split showed Precision@20 = 0.700, but that result was misleading because 12 clients overlapped; the honest unseen-client holdout gave Precision@20 = 0.000 for every method.
+
+That means the current evidence supports human-reviewed prioritization, not automatic content changes. Paper and reproducible notebooks: https://cyb3rvigil.github.io/flyrank-ml-internship/
+
+## Shareable Cut 2 — Employer Summary
+
+I built a public-safe ML research pipeline to prioritize client-content pages that may experience future impression decline, using 2,348 eligible rows from 14 pseudonymous clients and five historical search-performance features. I compared a transparent baseline, Logistic Regression, and Random Forest using a client-grouped holdout with four completely unseen test clients. The honest result was that all three methods achieved Precision@20 of 0.000, so the project recommends human-reviewed decision support and stronger grouped/time-based validation rather than automatic deployment.
+'''
+
+          cell = {
+              'cell_type': 'markdown',
+              'metadata': {},
+              'source': [line + '\n' for line in markdown.rstrip().split('\n')]
+          }
+          nb.setdefault('cells', []).append(cell)
+          path.write_text(json.dumps(nb, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          print('Appended Week-8 showcase markdown to', path)
+          PY
+
+      - name: Commit showcase update
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add work/notebooks/capstone.ipynb
+          if git diff --cached --quiet; then
+            echo "No notebook changes to commit."
+            exit 0
+          fi
+          git commit -m "Add Week-8 showcase materials"
+          git push
