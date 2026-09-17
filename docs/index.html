@@ -12,7 +12,7 @@
     <div class="container">
       <p class="eyebrow">FLYRANK ML INTERNSHIP · RESEARCH PAPER</p>
       <h1>Can Historical Search Signals Prioritize Future Impression-Decline Risk for Unseen Clients?</h1>
-      <p class="abstract"><strong>Abstract.</strong> This study asks whether historical search-performance signals can prioritize client-content pages that will experience a substantial future decline in daily impressions, especially for completely unseen clients. Using an anonymized FlyRank Internship Warehouse release, we built five pre-decision numerical features from a historical window and compared a transparent weighted baseline with Logistic Regression and a constrained Random Forest under a client-grouped holdout. On 2,348 eligible client-content rows, the unseen-client test contained 228 rows from four clients with zero training-test client overlap and a 5.7% positive base rate. All three approaches achieved Precision@20 of 0.000 on the honest unseen-client holdout, so the study does not demonstrate useful operational lift for automatic deployment. The resulting recommendation is a transparent, human-reviewed prioritization process while stronger validation data and additional leakage-safe features are collected.</p>
+      <p class="abstract"><strong>Abstract.</strong> This study asks whether historical search-performance signals can help solve a practical FlyRank content-operations problem: deciding which published client-content pages deserve human investigation first when search visibility quietly deteriorates. Using an anonymized FlyRank Internship Warehouse release, we built five pre-decision numerical features from a historical window and compared a transparent weighted baseline with Logistic Regression and a constrained Random Forest under a client-grouped holdout. On 2,348 eligible client-content rows, the unseen-client test contained 228 rows from four clients with zero training-test client overlap and a 5.7% positive base rate. All three approaches achieved Precision@20 of 0.000 on the honest unseen-client holdout, so the study does not demonstrate useful operational lift for automatic deployment. The resulting recommendation is a transparent, human-reviewed prioritization process while stronger validation data and additional leakage-safe features are collected.</p>
       <div class="meta"><span>Decision moment: 2026-03-21</span><span>Primary metric: Precision@20</span><span>Automation allowed: No</span></div>
     </div>
   </header>
@@ -20,8 +20,9 @@
   <main class="container paper">
     <section>
       <h2>1. Introduction and Problem Statement</h2>
-      <p>Search-performance teams need a practical way to decide which pages deserve human investigation before their visibility deteriorates further. The operational decision studied here is a Top-20 human-review queue: given historical evidence available before a decision date, rank pages by their future impression-decline risk.</p>
-      <p>The unit of analysis is a client-content page. The output is a ranked score and a review queue, not an automatic publishing action. The research question is deliberately narrow: can five historical search-performance features provide useful prioritization for clients that were completely unseen during model training?</p>
+      <p>FlyRank's content workflow treats content as infrastructure: pages are researched, published, monitored through search data, and optimized over time. A practical problem follows from that workflow: a page can quietly lose search visibility as rankings, clicks, and impressions change, while a team may have thousands of pages competing for limited review attention.</p>
+      <p>This study turns that product problem into a narrow ranking decision: <strong>out of many client-content pages, which twenty should a human analyst investigate first?</strong> The output is a review queue, not an automatic publishing action. The research question is whether five historical search-performance features can provide useful prioritization for clients that were completely unseen during model training.</p>
+      <p>The connection to FlyRank's existing content-operations problem is therefore direct: the experiment tests whether a learned ranking signal can add useful evidence to the page-review workflow while keeping production decisions human-reviewed when the evidence is weak.</p>
     </section>
 
     <section>
@@ -102,7 +103,7 @@
     </section>
 
     <footer>
-      <p>Research framing: decision support, not automatic publishing. Negative results are reported as measured.</p>
+      <p>Research framing: FlyRank content-operations case study; decision support, not automatic publishing. Negative results are reported as measured.</p>
     </footer>
   </main>
 </body>
