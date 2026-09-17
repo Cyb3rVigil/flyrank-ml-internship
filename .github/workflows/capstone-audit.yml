@@ -1,0 +1,59 @@
+name: Capstone Audit
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Inspect capstone notebook
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path('work/notebooks/capstone.ipynb')
+          nb = json.loads(p.read_text(encoding='utf-8'))
+
+          safe_terms = (
+              'precision', 'recall', 'f1', 'auc', 'baseline', 'model',
+              'lift', 'accuracy', 'metrics', 'split', 'validation',
+              'leakage', 'feature', 'label', 'rows', 'clients',
+              'recommend', 'limitation', 'result', 'seed', 'random'
+          )
+          blocked_terms = (
+              'client_id', 'content_id', 'http://', 'https://',
+              'raw query', 'search query', 'select *', 'password', 'token', 'secret'
+          )
+
+          print('=== CAPSTONE SECTION TEXT ===')
+          for i, cell in enumerate(nb.get('cells', [])):
+              if cell.get('cell_type') != 'markdown':
+                  continue
+              text = ''.join(cell.get('source', []))
+              heading = '\n'.join(line for line in text.splitlines() if line.startswith('#'))
+              if heading:
+                  print(f'CELL {i}: {heading}')
+
+          print('=== MATCHING OUTPUT LINES ===')
+          for i, cell in enumerate(nb.get('cells', [])):
+              for out in cell.get('outputs', []):
+                  vals = []
+                  data = out.get('data', {})
+                  vals += data.get('text/plain', []) or []
+                  if isinstance(vals, str):
+                      vals = [vals]
+                  for raw in vals:
+                      for line in str(raw).splitlines():
+                          low = line.lower()
+                          if any(term in low for term in safe_terms) and not any(term in low for term in blocked_terms):
+                              print(f'CELL {i}: {line[:500]}')
+          PY
