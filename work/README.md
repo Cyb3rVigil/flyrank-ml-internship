@@ -28,6 +28,16 @@ work/
   capstone_report.md    your capstone write-up (start from the template)
 ```
 
+
+## Capstone research paper
+
+- Deployed paper: https://cyb3rvigil.github.io/flyrank-ml-internship/
+- Full report: [`capstone_report.md`](capstone_report.md)
+- Capstone notebook: [`notebooks/capstone.ipynb`](notebooks/capstone.ipynb)
+- Final URL receipt: [`../submission/paper_url.txt`](../submission/paper_url.txt)
+
+The paper is decision-support research. Its client-grouped holdout produced Precision@20 = 0.000 for the baseline and both learned models, so automatic content actions remain blocked.
+
 ## Capstone
 
 Copy `capstone_report_template.md` to `capstone_report.md` and fill it in as you go — it
