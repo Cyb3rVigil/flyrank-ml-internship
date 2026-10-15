@@ -27,7 +27,7 @@
 
     <section>
       <h2>2. Data</h2>
-      <p>The analysis uses the public-safe, anonymized FlyRank Internship Warehouse release and the <code>fact_content_daily_performance</code> table. The feature window is <strong>2026-03-01 to 2026-03-21</strong>; the outcome window is <strong>2026-03-22 to 2026-03-31</strong>. There are 2,348 eligible client-content rows across 14 pseudonymous clients. The dataset is described as a sealed period from June 2026.</p>
+      <p>The analysis uses the pseudonymized <strong>FlyRank Internship Warehouse release v20260703</strong>, a frozen snapshot exported 3 July 2026, and queries only the March 2026 partition of <code>fact_content_daily_performance</code>. The feature window is <strong>2026-03-01 to 2026-03-21</strong>; the non-overlapping outcome window is <strong>2026-03-22 to 2026-03-31</strong>. After filtering to at least 14 historical days, at least 7 outcome days, at least 50 historical impressions, and <code>ga4_data_available IS TRUE</code>, 2,348 client-content observations from 14 pseudonymous clients remained. The June 2026 final period and <code>_sample</code> partition were excluded to avoid accidental use of the latest period as an answer key; query-level data and dimension tables were not required for this experiment. The full daily fact contains 78,835,655 rows across the release, but this study models only the filtered March aggregation. <a href="https://huggingface.co/datasets/FlyRank/internship-warehouse" target="_blank" rel="noopener">Dataset card and data-use terms ↗</a></p>
       <p>The public paper does not expose client names, company names, domains, page URLs, raw search queries, private keywords, credentials, or directly identifying information. Pseudonymous client identifiers are used for grouping and validation, not as predictive features.</p>
     </section>
 
@@ -46,6 +46,54 @@
     <section>
       <h2>4. Results</h2>
       <p>The honest client-grouped evaluation is the primary result because a random-row split allowed client overlap. That random-row diagnostic produced Precision@20 of 0.700, but 12 clients appeared in both training and test, making it unsuitable as evidence of unseen-client generalization. Under the grouped holdout, Precision@20 fell to 0.000 for all three approaches.</p>
+      <h3>Visual result 1 — Top-K precision</h3>
+      <p>At the operational cutoff of 20 items, no method selected an observation that met the decline proxy. At 50 items, measured precision remains below the test base rate of 5.7% for every approach.</p>
+      <figure class="chart-card">
+        <svg viewBox="0 0 760 250" role="img" aria-labelledby="precision-chart-title precision-chart-desc">
+          <title id="precision-chart-title">Precision at 20 and 50 by method</title>
+          <desc id="precision-chart-desc">Precision at 20 is zero for every method. Precision at 50 is 4 percent for the baseline and Logistic Regression, and 2 percent for Random Forest.</desc>
+          <g fill="#637083" font-size="12"><text x="215" y="24">0%</text><text x="313" y="24">1%</text><text x="411" y="24">2%</text><text x="509" y="24">3%</text><text x="607" y="24">4%</text><text x="705" y="24">5%</text></g>
+          <g stroke="#e0e6ef" stroke-dasharray="3 4"><line x1="215" y1="36" x2="215" y2="204"/><line x1="313" y1="36" x2="313" y2="204"/><line x1="411" y1="36" x2="411" y2="204"/><line x1="509" y1="36" x2="509" y2="204"/><line x1="607" y1="36" x2="607" y2="204"/><line x1="705" y1="36" x2="705" y2="204"/></g>
+          <g fill="#34445d" font-size="13"><text x="8" y="75">Rule baseline</text><text x="8" y="129">Logistic Regression</text><text x="8" y="183">Random Forest</text></g>
+          <g fill="#6a83d9"><rect x="215" y="55" width="392" height="18" rx="4"/><rect x="215" y="109" width="392" height="18" rx="4"/><rect x="215" y="163" width="196" height="18" rx="4"/></g>
+          <g fill="#2d405a" font-size="12" font-weight="700"><text x="615" y="69">4.0%</text><text x="615" y="123">4.0%</text><text x="419" y="177">2.0%</text></g>
+          <g fill="#fff" stroke="#b33d53" stroke-width="2"><circle cx="215" cy="82" r="5"/><circle cx="215" cy="136" r="5"/><circle cx="215" cy="190" r="5"/></g>
+          <g fill="#8c3443" font-size="11" font-weight="700"><text x="230" y="86">P@20 0.0%</text><text x="230" y="140">P@20 0.0%</text><text x="230" y="194">P@20 0.0%</text></g>
+          <text x="215" y="231" fill="#65738a" font-size="12">Bar = Precision@50 · circle = Precision@20</text>
+        </svg>
+        <figcaption><strong>Takeaway:</strong> the model does not enrich the top-20 queue; increasing review capacity to 50 still yields precision below the 5.7% test base rate.</figcaption>
+      </figure>
+
+      <h3>Visual result 2 — Secondary ranking metrics</h3>
+      <figure class="chart-card">
+        <svg viewBox="0 0 760 292" role="img" aria-labelledby="ranking-chart-title ranking-chart-desc">
+          <title id="ranking-chart-title">Average precision and ROC AUC compared with reference levels</title>
+          <desc id="ranking-chart-desc">Average precision is 0.0478 for the baseline, 0.0461 for Logistic Regression and 0.0591 for Random Forest, compared with 0.057 test prevalence. ROC AUC is 0.3955, 0.3284 and 0.5120 respectively, compared with chance 0.5.</desc>
+          <text x="8" y="22" fill="#20324b" font-size="14" font-weight="700">Average precision</text><text x="8" y="39" fill="#7a879b" font-size="11">Test base rate reference = 5.7%</text>
+          <g stroke="#e0e6ef" stroke-dasharray="3 4"><line x1="200" y1="50" x2="200" y2="151"/><line x1="320" y1="50" x2="320" y2="151"/><line x1="440" y1="50" x2="440" y2="151"/><line x1="560" y1="50" x2="560" y2="151"/></g>
+          <line x1="542" y1="50" x2="542" y2="151" stroke="#d07824" stroke-width="2" stroke-dasharray="4 4"/>
+          <g fill="#6a7588" font-size="11"><text x="200" y="47">0%</text><text x="320" y="47">2%</text><text x="440" y="47">4%</text><text x="560" y="47">6%</text><text x="549" y="61" fill="#a45b13">5.7%</text></g>
+          <g fill="#34445d" font-size="12"><text x="8" y="76">Baseline</text><text x="8" y="109">Logistic Regression</text><text x="8" y="142">Random Forest</text></g>
+          <g fill="#8d9bb0"><rect x="200" y="64" width="286.8" height="16" rx="4"/><rect x="200" y="97" width="276.6" height="16" rx="4"/></g><rect x="200" y="130" width="354.6" height="16" rx="4" fill="#168d87"/>
+          <g fill="#2d405a" font-size="11" font-weight="700"><text x="493" y="76">4.78%</text><text x="483" y="109">4.61%</text><text x="561" y="142">5.91%</text></g>
+          <line x1="8" y1="171" x2="750" y2="171" stroke="#dfe5ed"/>
+          <text x="8" y="194" fill="#20324b" font-size="14" font-weight="700">ROC-AUC</text><text x="8" y="211" fill="#7a879b" font-size="11">Chance reference = 0.5</text>
+          <g stroke="#e0e6ef" stroke-dasharray="3 4"><line x1="200" y1="218" x2="200" y2="274"/><line x1="320" y1="218" x2="320" y2="274"/><line x1="440" y1="218" x2="440" y2="274"/><line x1="560" y1="218" x2="560" y2="274"/></g><line x1="500" y1="218" x2="500" y2="274" stroke="#d07824" stroke-width="2" stroke-dasharray="4 4"/>
+          <g fill="#34445d" font-size="11"><text x="8" y="235">Baseline</text><text x="8" y="254">Logistic Regression</text><text x="8" y="273">Random Forest</text></g>
+          <g fill="#8d9bb0"><rect x="200" y="225" width="237.3" height="11" rx="3"/><rect x="200" y="244" width="197" height="11" rx="3"/></g><rect x="200" y="263" width="307.2" height="11" rx="3" fill="#168d87"/>
+          <g fill="#2d405a" font-size="10" font-weight="700"><text x="443" y="234">0.396</text><text x="403" y="253">0.328</text><text x="513" y="272">0.512</text></g>
+        </svg>
+        <figcaption><strong>Takeaway:</strong> Random Forest average precision (0.0591) is only slightly above the 0.057 test base rate and ROC-AUC (0.512) is barely above chance. These small differences do not overcome zero Precision@20.</figcaption>
+      </figure>
+
+      <h3>Why validation design matters</h3>
+      <div class="validation-compare">
+        <div class="validation-card validation-warning"><span>Random-row diagnostic</span><strong>0.700</strong><b>Precision@20</b><p>12 clients overlapped between train and test. This is not valid evidence of unseen-client generalization.</p></div>
+        <div class="validation-arrow" aria-hidden="true">→</div>
+        <div class="validation-card validation-primary"><span>Client-grouped holdout</span><strong>0.000</strong><b>Precision@20</b><p>Zero client overlap; four test clients unseen in training. This is the primary result.</p></div>
+      </div>
+      <p class="chart-note">The random-row result is shown only to illustrate client-leakage risk. Its test composition differs, so it is not a like-for-like benchmark and does not support deployment.</p>
+
       <div class="table-wrap">
         <table>
           <thead><tr><th>Method</th><th>Precision@20</th><th>Precision@50</th><th>Average Precision</th><th>ROC-AUC</th></tr></thead>
@@ -99,7 +147,7 @@
     <section>
       <h2>8. Acknowledgments and Data Credit</h2>
       <p>This research was completed as part of the FlyRank ML Internship using the provided anonymized internship warehouse and public-safe research workflow.</p>
-      <p>Data credit: <a href="https://flyrank.ai" target="_blank" rel="noopener">FlyRank</a>.</p>
+      <p><strong><a href="https://flyrank.ai" target="_blank" rel="noopener">Built on the FlyRank ML Internship dataset</a></strong>.</p>
     </section>
 
     <footer>
