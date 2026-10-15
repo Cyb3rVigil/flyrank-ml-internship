@@ -46,6 +46,24 @@ for directory in NOTEBOOK_DIRS:
             errors.append(f"{relative}: 'cells' must be a list")
             continue
 
+        # Warehouse notebooks must explicitly load DuckDB's HTTPFS extension
+        # before using hf:// URLs or Hugging Face secrets.
+        all_code = "\n".join(
+            "".join(cell.get("source", []))
+            if isinstance(cell.get("source", []), list)
+            else str(cell.get("source", ""))
+            for cell in cells
+            if cell.get("cell_type") == "code"
+        )
+        if (
+            "hf://datasets/FlyRank/internship-warehouse" in all_code
+            and "CREATE OR REPLACE SECRET hf" in all_code
+            and not re.search(r"\\bLOAD\\s+httpfs\\b", all_code, re.IGNORECASE)
+        ):
+            errors.append(
+                f"{relative}: warehouse notebook must LOAD httpfs before accessing hf://"
+            )
+
         for cell_index, cell in enumerate(cells):
             if not isinstance(cell, dict):
                 errors.append(f"{relative} cell {cell_index}: cell must be an object")
