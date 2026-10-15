@@ -16,6 +16,23 @@ no private client data, no setup headaches.
 
 ---
 
+
+
+## Capstone — Refresh / Content Opportunity Scoring
+
+**Research paper:** [Can historical search signals prioritize future impression decline for unseen clients?](https://cyb3rvigil.github.io/flyrank-ml-internship/)
+
+The paper reports a client-grouped evaluation on an anonymized FlyRank Internship Warehouse slice. In the tested 228-row holdout from four unseen clients, all three methods had **Precision@20 = 0.000**; accordingly, this is a human-review research prototype, not an automated refresh system.
+
+- [Capstone report](work/capstone_report.md)
+- [Capstone notebook](work/notebooks/capstone.ipynb)
+- [Model comparison notebook](work/notebooks/w05_model.ipynb)
+- [Validation and leakage audit](work/notebooks/w06_validation_audit.ipynb)
+- [Ranked human-review action playbook](work/notebooks/w07_action_playbook.ipynb)
+- [Required deployed-paper URL receipt](submission/paper_url.txt)
+
+The exact public paper URL is recorded in `submission/paper_url.txt`. If the paper URL does not open, check GitHub repository **Settings → Pages** and confirm deployment from branch `main`, folder `/docs`.
+
 ## Quickstart — first win in 2 minutes
 
 The fastest path is Google Colab (one click, zero install). Open Notebook 1 and run all cells:
