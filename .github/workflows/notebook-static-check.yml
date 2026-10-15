@@ -1,0 +1,35 @@
+name: Notebook static validation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "notebooks/**"
+      - "work/notebooks/**"
+      - "scripts/validate_notebooks.py"
+      - "submission/paper_url.txt"
+      - ".github/workflows/notebook-static-check.yml"
+  pull_request:
+    paths:
+      - "notebooks/**"
+      - "work/notebooks/**"
+      - "scripts/validate_notebooks.py"
+      - "submission/paper_url.txt"
+      - ".github/workflows/notebook-static-check.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-notebooks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate notebook structure and code syntax
+        run: python scripts/validate_notebooks.py
