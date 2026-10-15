@@ -58,7 +58,7 @@ for directory in NOTEBOOK_DIRS:
         if (
             "hf://datasets/FlyRank/internship-warehouse" in all_code
             and "CREATE OR REPLACE SECRET hf" in all_code
-            and not re.search(r"\\bLOAD\\s+httpfs\\b", all_code, re.IGNORECASE)
+            and not re.search(r"\bLOAD\s+httpfs\b", all_code, re.IGNORECASE)
         ):
             errors.append(
                 f"{relative}: warehouse notebook must LOAD httpfs before accessing hf://"
