@@ -70,8 +70,7 @@ The full warehouse (~79M rows) is hosted on Hugging Face behind a click-through 
    nothing tells you why.
 3. **Create a READ token**: huggingface.co → Settings → **Access Tokens** → Create new token →
    type **Read** → name it (e.g. `internship`) → copy it somewhere safe.
-   ⚠️ Read, not Write — the track never needs more, and a read-only token can still access the gated dataset, so never commit it; revoke or rotate it immediately if exposed
-   to you.
+   ⚠️ Read, not Write — this workflow never needs write access. A read-only token still grants access to the gated dataset, so never commit it; revoke it immediately if exposed.
 4. **Use it in notebooks**: paste it at the `getpass` prompt when a notebook asks, or store it
    in Colab's **Secrets** panel (🔑 icon, name it `HF_TOKEN`).
    ⚠️ **Never type the token into a code cell.** Your repo is public — a hardcoded token
