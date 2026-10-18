@@ -33,6 +33,24 @@ jobs:
           test -f outputs/model_report.md
           echo "Pipeline produced expected outputs."
 
+      - name: Assert leak-free validation and held-out test reporting
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          results = json.loads(Path("outputs/model_results.json").read_text(encoding="utf-8"))
+          assert results.get("model_selection_partition") == "inner_validation", "Model selection must use a validation split."
+          assert results.get("test_partition_used_for_selection") is False, "The held-out test set must not choose the winning model."
+          assert results.get("validation_rows", 0) > 0, "Validation rows must be recorded."
+          assert results.get("test_rows", 0) > 0, "Test rows must be recorded."
+          held_out = results.get("held_out_test", {})
+          assert held_out.get("selected_model") == results.get("best_model", {}).get("name"), "Held-out metrics must refer to the selected model."
+          metrics = held_out.get("selected_model_metrics", {})
+          assert "test_precision_at_50" in metrics and "test_roc_auc" in metrics, "Expected held-out metrics are missing."
+          print("Validated separate validation-based model selection and held-out test reporting.")
+          PY
+
   data-leak-check:
     runs-on: ubuntu-latest
     steps:

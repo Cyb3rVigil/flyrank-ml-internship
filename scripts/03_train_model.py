@@ -47,7 +47,12 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def build_feature_matrix(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
+def build_feature_matrix(
+    frame: pd.DataFrame,
+    *,
+    fit_indices: np.ndarray | None = None,
+) -> tuple[pd.DataFrame, list[str]]:
+    """Build numeric/one-hot features; learn categorical columns from fit rows only."""
     numeric_features = [
         column for column in MODEL_NUMERIC_FEATURES if column in frame.columns
     ]
@@ -65,6 +70,16 @@ def build_feature_matrix(frame: pd.DataFrame) -> tuple[pd.DataFrame, list[str]]:
         dummy_na=False,
         dtype=float,
     )
+    if fit_indices is not None and categorical_features:
+        fit_encoded = pd.get_dummies(
+            categorical_frame.iloc[fit_indices],
+            prefix=categorical_features,
+            dummy_na=False,
+            dtype=float,
+        )
+        # Categories only found in validation/test are unknown to the fitted
+        # feature schema and map to an all-zero encoded representation.
+        encoded_frame = encoded_frame.reindex(columns=fit_encoded.columns, fill_value=0)
 
     feature_frame = pd.concat(
         [numeric_frame.reset_index(drop=True), encoded_frame.reset_index(drop=True)],
@@ -105,6 +120,27 @@ def make_client_aware_split(
         stratify=target_series,
     )
     return np.array(train_indices), np.array(test_indices), "stratified_row_holdout"
+
+
+def make_validation_split(
+    outer_train_indices: np.ndarray,
+    target_series: pd.Series,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split outer training rows for model selection without touching the test set."""
+    outer_target = target_series.iloc[outer_train_indices]
+    class_counts = outer_target.value_counts()
+    if outer_target.nunique() != 2 or class_counts.min() < 2:
+        raise ValueError(
+            "The outer training partition needs at least two examples of each "
+            "target class to create a separate validation split."
+        )
+    fit_indices, validation_indices = train_test_split(
+        outer_train_indices,
+        test_size=0.2,
+        random_state=43,
+        stratify=outer_target,
+    )
+    return np.asarray(fit_indices), np.asarray(validation_indices)
 
 
 def build_models() -> dict[str, object]:
@@ -211,54 +247,81 @@ def main() -> None:
     baseline_frame = pd.read_csv(args.baseline)
     if frame.empty:
         raise ValueError("Feature vector is empty")
-    if frame["is_declining_label"].nunique() < 2:
+    if "is_declining_label" not in frame.columns or "client_id" not in frame.columns:
+        raise ValueError("Feature vector must include is_declining_label and client_id")
+    target_series = pd.to_numeric(frame["is_declining_label"], errors="raise").astype(int)
+    if target_series.nunique() != 2:
         raise ValueError("Training target has only one class; cannot train classifier")
 
-    feature_frame, feature_columns = build_feature_matrix(frame)
-    target_series = frame["is_declining_label"].astype(int)
     train_indices, test_indices, split_strategy = make_client_aware_split(frame, target_series)
+    fit_indices, validation_indices = make_validation_split(train_indices, target_series)
 
-    train_features = feature_frame.iloc[train_indices]
-    test_features = feature_frame.iloc[test_indices]
-    train_target = target_series.iloc[train_indices]
+    # The validation and test rows do not influence the encoded categorical
+    # vocabulary or model fit used for model selection/evaluation.
+    evaluation_features, evaluation_columns = build_feature_matrix(frame, fit_indices=fit_indices)
+    fit_features = evaluation_features.iloc[fit_indices]
+    validation_features = evaluation_features.iloc[validation_indices]
+    test_features = evaluation_features.iloc[test_indices]
+    fit_target = target_series.iloc[fit_indices]
+    validation_target = target_series.iloc[validation_indices]
     test_target = target_series.iloc[test_indices]
 
     baseline_lookup = baseline_frame.set_index("content_id")["baseline_refresh_score"]
-    baseline_test_scores = (
+    validation_baseline_scores = (
+        frame.iloc[validation_indices]["content_id"].map(baseline_lookup).fillna(0).to_numpy()
+    )
+    test_baseline_scores = (
         frame.iloc[test_indices]["content_id"].map(baseline_lookup).fillna(0).to_numpy()
     )
-    baseline_metrics = metric_payload(
-        test_target,
-        baseline_test_scores,
+    baseline_validation_metrics = metric_payload(
+        validation_target,
+        validation_baseline_scores,
         prefix="baseline_",
     )
+    baseline_test_metrics = metric_payload(
+        test_target,
+        test_baseline_scores,
+        prefix="baseline_test_",
+    )
 
-    trained_models = build_models()
-    model_results: dict[str, dict[str, float]] = {}
-    for model_name, model in trained_models.items():
-        model.fit(train_features, train_target)
-        test_probabilities = predict_probability(model, test_features)
-        model_results[model_name] = metric_payload(test_target, test_probabilities)
+    validation_results: dict[str, dict[str, float]] = {}
+    for model_name, model in build_models().items():
+        model.fit(fit_features, fit_target)
+        validation_probabilities = predict_probability(model, validation_features)
+        validation_results[model_name] = metric_payload(
+            validation_target,
+            validation_probabilities,
+        )
 
+    # Select only from validation metrics. Never rank/select models on test metrics.
     best_model_name = sorted(
-        model_results,
+        validation_results,
         key=lambda name: (
-            model_results[name]["precision_at_50"],
-            model_results[name]["average_precision"],
-            model_results[name]["roc_auc"],
+            validation_results[name]["precision_at_50"],
+            validation_results[name]["average_precision"],
+            validation_results[name]["roc_auc"],
         ),
         reverse=True,
     )[0]
 
-    full_data_models = build_models()
-    prediction_frame = frame[["content_id", "client_id", "is_declining_label"]].copy()
-    split_label = pd.Series("train", index=frame.index)
-    split_label.iloc[test_indices] = "test"
-    prediction_frame["split"] = split_label
+    # Evaluate the selected candidate once on the untouched outer test partition.
+    selected_eval_model = build_models()[best_model_name]
+    selected_eval_model.fit(evaluation_features.iloc[train_indices], target_series.iloc[train_indices])
+    selected_test_probabilities = predict_probability(selected_eval_model, test_features)
+    selected_test_metrics = metric_payload(
+        test_target,
+        selected_test_probabilities,
+        prefix="test_",
+    )
 
+    # Refit all candidates on all available rows for the operational refresh
+    # ranking output. These scores are ranking signals, not held-out evaluations.
+    full_features, full_feature_columns = build_feature_matrix(frame)
+    full_data_models = build_models()
+    prediction_frame = frame[["content_id", "client_id"]].copy()
     for model_name, model in full_data_models.items():
-        model.fit(feature_frame, target_series)
-        prediction_frame[f"prob_{model_name}"] = predict_probability(model, feature_frame)
+        model.fit(full_features, target_series)
+        prediction_frame[f"prob_{model_name}"] = predict_probability(model, full_features)
 
     prediction_frame["best_model_name"] = best_model_name
     prediction_frame["best_model_probability"] = prediction_frame[f"prob_{best_model_name}"]
@@ -271,28 +334,40 @@ def main() -> None:
     results_payload = {
         "input_rows": int(len(frame)),
         "train_rows": int(len(train_indices)),
+        "validation_rows": int(len(validation_indices)),
         "test_rows": int(len(test_indices)),
         "split_strategy": split_strategy,
+        "model_selection_partition": "inner_validation",
+        "test_partition_used_for_selection": False,
         "target": "is_declining_label",
         "target_positive_rows": int(target_series.sum()),
         "target_positive_rate": float(target_series.mean()),
-        "feature_count": int(len(feature_columns)),
+        "feature_count": int(len(full_feature_columns)),
         "model_numeric_features": MODEL_NUMERIC_FEATURES,
         "model_categorical_features": MODEL_CATEGORICAL_FEATURES,
-        "models": model_results,
-        "baseline": baseline_metrics,
+        "models": validation_results,
+        "baseline": baseline_validation_metrics,
+        "held_out_test": {
+            "selected_model": best_model_name,
+            "selected_model_metrics": selected_test_metrics,
+            "baseline_metrics": baseline_test_metrics,
+        },
         "best_model": {
             "name": best_model_name,
-            "selection_metric": "precision_at_50",
-            "feature_importance_top": top_feature_importance(best_full_model, feature_columns),
+            "selection_metric": "validation_precision_at_50",
+            "validation_metrics": validation_results[best_model_name],
+            "test_metrics": selected_test_metrics,
+            "feature_importance_top": top_feature_importance(best_full_model, full_feature_columns),
         },
         "prediction_output": display_path(prediction_path),
+        "prediction_note": "Probabilities in model_predictions.csv are generated by models refit on all rows for prioritization; do not interpret them as held-out test predictions.",
     }
     write_json(Path(args.results), results_payload)
 
-    print(f"Trained {len(model_results)} models on {len(frame):,} rows")
+    print(f"Trained {len(validation_results)} models on {len(frame):,} rows")
     print(f"Split strategy: {split_strategy}")
-    print(f"Best model: {best_model_name}")
+    print(f"Selected using validation precision@50: {best_model_name}")
+    print(f"Selected-model held-out test precision@50: {selected_test_metrics['test_precision_at_50']:.4f}")
     print(f"Wrote predictions: {prediction_path}")
     print(f"Wrote model results: {args.results}")
 

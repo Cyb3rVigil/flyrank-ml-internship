@@ -46,7 +46,18 @@ def main() -> None:
     df = pd.read_csv(input_path)
     initial_rows = len(df)
 
-    required = ["content_id", "client_id", "impressions_90d", "sessions_90d", "content_age_days", "trend_direction"]
+    required = [
+        "content_id",
+        "client_id",
+        "impressions_90d",
+        "clicks_90d",
+        "sessions_90d",
+        "content_age_days",
+        "trend_direction",
+        "word_count",
+        "avg_position",
+        "ctr",
+    ]
     missing = [column for column in required if column not in df.columns]
     if missing:
         raise ValueError(f"Missing required columns: {missing}")
